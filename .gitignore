@@ -1,0 +1,7 @@
+.venv/
+codebase/
+comments/
+issues/
+.token
+.github_token
+__pycache__/
