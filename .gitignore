@@ -5,3 +5,4 @@ issues/
 .token
 .github_token
 __pycache__/
+.secrets
