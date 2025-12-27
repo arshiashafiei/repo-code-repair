@@ -9,6 +9,15 @@ issues
 
 ## TODO:
 
+- [ ] Git commit naming conventions and best practices
+- [ ] How to validate and check my answers?
+  - [ ] Ask chatgpt and Gemini about how to measure my program success rate (number 3)
+  - [ ] Find things similar to SWE-BENCH
+- [ ] Take a look at SWE-Bench to understand how to incorporate it with my program
+- [ ] Record and Store statistics about my answers to understand the effectiveness of my work (e.g. different models, prompts, techniques, and so on)
+  - [ ] What stats should be stored?
+  
+
 **Ideas:**
 - [ ] Knowledge pssobility (it is simillar to a RAG system)
 - [ ] Graph based search - What are the nodes?
@@ -16,12 +25,13 @@ issues
 - [ ] RAG: retrieving from {a previously solved issues and problematic files} or {}
 - [ ] Prompting techniques: one-shot, few-shot, zero-shot, persona, chain-of-thoughts, and so on.
 - [ ] Write tests for the project using something else (LLMs, tools, or programmers...) then fix those parts or functions that are wrong according to these tests.
+- [ ] Acting like a human, talking with the model until satisfied. Maybe two models talking with each other, one act as a developer and the other as the tool.
 
 **Providing context:**
 - [x] read an issue
 - [x] read an issue disscussion
-- [ ] creating input
-  - [ ] Look at papers for prompt samples (SWE_FIXER)
+- [x] creating input
+  - [x] Look at papers for prompt samples (SWE_FIXER)
   - [x] ask gpt for prompt samples:
     - [x] What prompt can I give to an llm to create a patch code snippet that focuses on different aspects regarding issue resolving, technical debts, code issues, bugs and so on?
     - [x] Take a look at papers focusing on APR and this problem regardless of said aspects
@@ -30,12 +40,12 @@ issues
     - [x] What papers focus on program repair using a github issue
     - [x] In these papers, how they find the buggy or problematic line, function, or hunk of code?
     - [x] yes I meant code review / refactoring / smell detection. but tell me if there are any that suggest fixes in structured output that can be applied to the code in question. In another aspect, tell me if there are any of these code review or APR papers that try to solve a github issue
-  - [ ] Creating system prompt
-  - [ ] Creating human prompt
-    - [ ] A simple similarity search providing most similar files and/or issues to the query(file/issue)
-      - [ ] Add all files and issues to a vector store using an embedding for code stuff?
-      - [ ] Search top-k (top-3) issues/files to the query and add to the context
-      - [ ] What data should be given about the files/issues?
+  - [x] Creating system prompt
+  - [x] Creating human prompt
+    - [x] A simple similarity search providing most similar files and/or issues to the query(file/issue)
+      - [x] Add all files and issues to a vector store using an embedding
+      - [x] Search top-k (top-3) issues/files to the query and add to the context
+      - [x] What data should be given about the files/issues?
         - [ ] path + file name
         - [ ] Line numbers
         - [ ] Commit message
@@ -49,7 +59,7 @@ I need something to use that prompt
 - [ ] cli for creating input (selecting file or issue)
 
 **Output:**
-- [ ] structured output in json
+- [x] structured output in json
 
 **Checking answers:**
 - [ ] Find a dataset of issues or files with known problems and fixes, either one would suffice for now...
@@ -67,9 +77,6 @@ Create API endpoints for:
 - a function for making a request based on an input -> CONTEXT
 - a function for creating or selecting the input content -> USER_INPUT(request of issue or file fixing)
 
-langsmith key: `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`
-
-gemini key: `AIzaSyDMaXBe1u-cQqtoYJTkRj9uJgUEriJHIg8`
 
 export HTTPS_PROXY='http://username:password@proxy_uri:port'
 
