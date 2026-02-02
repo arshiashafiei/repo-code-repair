@@ -11,3 +11,5 @@ old/
 .vscode/
 chroma-data/
 summarized_issues/
+projects/
+logs/
