@@ -1,0 +1,23 @@
+services:
+  chromadb:
+    image: chromadb/chroma@${CHROMA_VERSION:-latest}
+    
+    ports:
+      - "8088:8000"
+
+    volumes:
+      - ./chroma-data:/data
+      - ./chroma-data:/chroma/chroma
+
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/data
+      - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-FALSE}
+
+    healthcheck:
+      test: ["CMD", "/bin/bash", "-c", "cat < /dev/null > /dev/tcp/localhost/8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    restart: unless-stopped
