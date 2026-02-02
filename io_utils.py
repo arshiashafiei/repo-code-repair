@@ -2,17 +2,23 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 from pathlib import Path
 import jsonlines
 
+
 TEXT_EXTS = {
     ".py", ".md", ".txt", ".rst", ".toml", ".yaml", ".yml", ".json", ".ini", ".cfg",
     ".dockerfile", ".env", ".sh", ".bat",
 }
 
+
 def get_file_content(path: str) -> str:
     """
-    Returns [str] file text content from [str] a path
+    Returns [str] file text content from [str] a path.
+    Accepts both absolute paths and relative paths (which will be prefixed with 'codebase/').
     """
     try:
-        return Path("codebase/" + path).read_text(encoding="utf-8")
+        p = Path(path)
+        if not p.is_absolute() and not p.exists():
+            p = Path("codebase") / path
+        return p.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         return ""
     except OSError:
@@ -37,12 +43,12 @@ def iter_issues_jsonl() -> Iterable[Any]:
             yield issue
 
 
-def get_issue_content(issue_number: int) -> tuple[str | None, str | None, str | None]:
+def get_issue_content(issue_number: int, issues_path_jsonl: str = "issues/issues.jsonl") -> tuple[str | None, str | None, str | None]:
     """
     Returns tuple[str | None, str | None, str | None] issue text content from [int] an id:
     (issue["title"], issue["body"], issue["labels"]) 
     """
-    with jsonlines.open("issues/issues.jsonl") as reader:
+    with jsonlines.open(issues_path_jsonl) as reader:
         for issue in reader:
             if issue["number"] == issue_number:
                 return (issue["title"], issue["body"], issue["labels"])
