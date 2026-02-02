@@ -3,45 +3,50 @@ from typing import Any, Iterable, List, Literal, Optional, Tuple
 
 import log
 
+
 Category = Literal[
-    "CORRECTNESS",
-    "ROBUSTNESS_ERROR_HANDLING",
-    "ARCHITECTURE_DESIGN",
-    "READABILITY_NAMING",
-    "PERFORMANCE",
-    "MAINTAINABILITY_TECH_DEBT",
+    "SYNTAX_ERROR",
+    "LINTING",
+    "OTHER"
 ]
-Severity = Literal["low", "med", "high"]
 
 
-class PatchSuggestion(BaseModel):
+class PatchSnippet(BaseModel):
     category: Category
-    severity: Severity
-    confidence: float = Field(ge=0.0, le=1.0)
-
+    confidence: float = Field(ge=-0.1, le=1.1)
     evidence: str 
-    file_path: str
 
-    line_start: Optional[int] = None
-    line_end: Optional[int] = None
+    line_start_for_editing: int
+    line_end_for_editing: int
 
-    exact_existing_snippet: str
-    replacement_snippet: str
-    
-    summary: str
+    exact_existing_buggy_snippet: str
+    correct_replacement_snippet: str
 
 
-class PatchResponse(BaseModel):
-    suggestions: List[PatchSuggestion] = Field(default_factory=list)
+class PatchSuggestions(BaseModel):
+    file_path_to_edit: str
+    edits: List[PatchSnippet] = Field(default_factory=list)
 
 
-def pretty_print_response(resp: PatchResponse) -> None:
-    for s in resp.suggestions:
-        log.log_and_print(f"[{s.category}] [severity: {s.severity}] [confidence: {s.confidence:.2f}]")
+class MultiFileSnippet(BaseModel):
+    file_path_to_edit: str
+    file_edits: List[PatchSnippet] = Field(default_factory=list)
+
+
+class MultiFileSuggestions(BaseModel):
+    edits: List[MultiFileSnippet] = Field(default_factory=list)
+
+
+class DiffviewEdits(BaseModel):
+    edits: str
+
+
+def pretty_print_response(resp: PatchSuggestions) -> None:
+    for s in resp.edits:
+        log.log_and_print(f"[{s.category}] [confidence: {s.confidence:.2f}]")
         log.log_and_print(f"[evidence]\n{s.evidence}")
-        log.log_and_print(f"[path + file name]\n{s.file_path}")
-        log.log_and_print(f"[Line numbers]\n{(s.line_start, s.line_end)}")
-        log.log_and_print("[exact existing snippet]\n" + s.exact_existing_snippet)
-        log.log_and_print("[replacement snippet]\n" + s.replacement_snippet)
-        log.log_and_print("[Summary]\n" + s.summary)
-        log.log_and_print("-" * 80)
+        log.log_and_print(f"[path + file name]\n{resp.file_path_to_edit}")
+        log.log_and_print(f"[Line numbers]\n{(s.line_start_for_editing, s.line_end_for_editing)}")
+        log.log_and_print("[exact existing snippet]\n" + s.exact_existing_buggy_snippet)
+        log.log_and_print("[replacement snippet]\n" + s.correct_replacement_snippet)
+        log.log_and_print("#" * 160)
