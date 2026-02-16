@@ -1,25 +1,19 @@
 from __future__ import annotations
 
 import getpass
-import io
 import json
 import os
 import re
-import shutil
-import zipfile
 import subprocess
-import requests
 import threading
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time import sleep
 from typing import Optional, Tuple, Set
+
 from urllib.parse import urlparse
 from github import Github, Auth, GithubRetry
-
-
-# ---------- helpers ----------
+from github.Issue import Issue
 
 
 def _parse_repo_url(repo_url: str) -> Tuple[str, str]:
@@ -129,8 +123,6 @@ def _read_processed_comment_ids(comments_path: str) -> Set[int]:
 
 def _is_pull_request(issue) -> bool:
     return getattr(issue, "pull_request", None) is not None
-
-
 
 
 def _try_git_checkout(out_dir: str, commit_hash: str) -> bool:
@@ -272,121 +264,6 @@ def download_codebase(
     _try_git_checkout(name, ref)
 
 
-def save_issues(
-    repo_url: str,
-    out_dir: str = "issues",
-    filename: str = "issues.jsonl",
-    token: str = "",
-    include_prs: bool = False,
-):
-    """
-    Saves repository issues (title + body + metadata) as JSON Lines.
-
-    Args:
-        repo_url: GitHub repo URL
-        out_dir: output directory (default: "issues")
-        filename: output file name (default: "issues.jsonl")
-        token: GitHub token or env var
-        include_prs: include PRs in addition to issues (default: False)
-    """
-    g = _make_github(token)
-    owner, name = _parse_repo_url(repo_url)
-    repo = g.get_repo(f"{owner}/{name}")
-
-    print("====== Adding issues... ======")
-    sleep(1.0)
-
-    records = []
-    for issue in repo.get_issues(state="all"):  # PyGithub handles pagination
-        if not include_prs and _is_pull_request(issue):
-            continue
-
-        labels = (
-            [lbl.name for lbl in issue.get_labels()]
-            if hasattr(issue, "get_labels")
-            else []
-        )
-        assignees = [a.login for a in (issue.assignees or [])]
-
-        print("=========")
-        print(f"number: {issue.number}")
-        print(f"title: {issue.title}")
-        print(f"is_pull_request: {_is_pull_request(issue)}")
-        print("==============")
-
-        records.append(
-            {
-                "repo": f"{owner}/{name}",
-                "number": issue.number,
-                "title": issue.title or "",
-                "body": issue.body or "",
-                "state": issue.state,
-                "created_at": issue.created_at,
-                "updated_at": issue.updated_at,
-                "closed_at": issue.closed_at,
-                "user": getattr(issue.user, "login", None),
-                "assignees": assignees,
-                "labels": labels,
-                "is_pull_request": _is_pull_request(issue),
-                "html_url": issue.html_url,
-                "comments_count": issue.comments,
-            }
-        )
-
-    _write_jsonl(os.path.join(out_dir, filename), records)
-
-
-def save_issue_comments(
-    repo_url: str,
-    out_dir: str = "comments",
-    filename: str = "comments.jsonl",
-    token: str = "",
-    include_prs: bool = False,
-):
-    """
-    Saves all issue comments (including comments on PR threads as "issue comments")
-    as JSON Lines.
-
-    Args:
-        repo_url: GitHub repo URL
-        out_dir: output directory (default: "comments")
-        filename: output file name (default: "comments.jsonl")
-        token: GitHub token or env var
-        include_prs: include PR issues when iterating (default: False)
-    """
-    g = _make_github(token)
-    owner, name = _parse_repo_url(repo_url)
-    repo = g.get_repo(f"{owner}/{name}")
-
-    print("====== Adding issues' comments... ======")
-    sleep(1.0)
-
-    records = []
-    for issue in repo.get_issues(state="all"):
-        if not include_prs and _is_pull_request(issue):
-            continue
-        for c in issue.get_comments():
-            print("===")
-            print(f"number: {c.id}")
-            print(f"body: {c.body}")
-            print("=======")
-            records.append(
-                {
-                    "repo": f"{owner}/{name}",
-                    "issue_number": issue.number,
-                    "issue_title": issue.title or "",
-                    "comment_id": c.id,
-                    "user": getattr(c.user, "login", None),
-                    "body": c.body or "",
-                    "created_at": c.created_at,
-                    "updated_at": c.updated_at,
-                    "html_url": c.html_url,
-                }
-            )
-
-    _write_jsonl(os.path.join(out_dir, filename), records)
-
-
 def get_commit_date_posix(repo_url, commit_hash):
     g = _make_github()
     owner, name = _parse_repo_url(repo_url)
@@ -407,7 +284,9 @@ def save_issues_and_comments_before_commit(
     token: str = "",
     include_prs: bool = True,
     max_workers: int = 3,
-    time_duration: int = 180
+    time_duration: int = 180,
+    save_comments: bool = False,
+    only_closed: bool = False
 ):
     """
     Saves repository issues and comments that were created before a given commit.
@@ -424,6 +303,8 @@ def save_issues_and_comments_before_commit(
         include_prs: include PRs in addition to issues (default: False)
         max_workers: number of threads for parallel processing (default: 3)
         time_duration: since this time before commit author date [days](180)
+        save_comments: save comments or not [False]
+        only_closed: to save only closed issues or not [False]
     """
 
     g = _make_github(token)
@@ -462,13 +343,16 @@ def save_issues_and_comments_before_commit(
     stats = {"issues_added": 0, "issues_skipped": 0, "comments_added": 0, "comments_skipped": 0}
     stats_lock = threading.Lock()
     
-    def process_issue(issue):
+    def process_issue(issue: Issue):
         """Process a single issue and its comments. Returns counts of processed items."""
         local_stats = {"issues_added": 0, "issues_skipped": 0, "comments_added": 0, "comments_skipped": 0}
         
         if not include_prs and _is_pull_request(issue):
             return local_stats
         
+        if only_closed and issue.state == "open":
+            return local_stats
+
         if issue.created_at > cutoff_date:
             return local_stats
         
@@ -511,7 +395,10 @@ def save_issues_and_comments_before_commit(
         else:
             print(f"⏭ Skipping issue #{issue_number} (already processed)")
             local_stats["issues_skipped"] = 1
-    
+
+        if not save_comments:
+            return local_stats
+
         try:
             for c in issue.get_comments():
                 if c.created_at > cutoff_date:
@@ -586,26 +473,141 @@ def save_issues_and_comments_before_commit(
     return (issues_filename, comments_filename)
 
 
-if __name__ == "__main__":
-    import argparse
+# def save_issues(
+#     repo_url: str,
+#     out_dir: str = "issues",
+#     filename: str = "issues.jsonl",
+#     token: str = "",
+#     include_prs: bool = False,
+# ):
+#     """
+#     Saves repository issues (title + body + metadata) as JSON Lines.
 
-    ap = argparse.ArgumentParser(
-        description="Dump GitHub repo code, issues, and comments."
-    )
-    ap.add_argument("repo_url", help="GitHub repository URL")
-    ap.add_argument("--token", help="GitHub token (or set env GITHUB_TOKEN)")
-    ap.add_argument(
-        "--ref",
-        help="Branch/Tag/Commit for code archive (default: repo default branch)",
-    )
-    ap.add_argument(
-        "--include-prs",
-        action="store_true",
-        help="Include PRs when exporting issues & comments",
-    )
-    args = ap.parse_args()
+#     Args:
+#         repo_url: GitHub repo URL
+#         out_dir: output directory (default: "issues")
+#         filename: output file name (default: "issues.jsonl")
+#         token: GitHub token or env var
+#         include_prs: include PRs in addition to issues (default: False)
+#     """
+#     g = _make_github(token)
+#     owner, name = _parse_repo_url(repo_url)
+#     repo = g.get_repo(f"{owner}/{name}")
 
-    download_codebase(args.repo_url, token=args.token, ref=args.ref)
-    save_issues(args.repo_url, token=args.token, include_prs=args.include_prs)
-    save_issue_comments(args.repo_url, token=args.token, include_prs=args.include_prs)
-    print("Done.")
+#     print("====== Adding issues... ======")
+#     sleep(1.0)
+
+#     records = []
+#     for issue in repo.get_issues(state="all"):  # PyGithub handles pagination
+#         if not include_prs and _is_pull_request(issue):
+#             continue
+
+#         labels = (
+#             [lbl.name for lbl in issue.get_labels()]
+#             if hasattr(issue, "get_labels")
+#             else []
+#         )
+#         assignees = [a.login for a in (issue.assignees or [])]
+
+#         print("=========")
+#         print(f"number: {issue.number}")
+#         print(f"title: {issue.title}")
+#         print(f"is_pull_request: {_is_pull_request(issue)}")
+#         print("==============")
+
+#         records.append(
+#             {
+#                 "repo": f"{owner}/{name}",
+#                 "number": issue.number,
+#                 "title": issue.title or "",
+#                 "body": issue.body or "",
+#                 "state": issue.state,
+#                 "created_at": issue.created_at,
+#                 "updated_at": issue.updated_at,
+#                 "closed_at": issue.closed_at,
+#                 "user": getattr(issue.user, "login", None),
+#                 "assignees": assignees,
+#                 "labels": labels,
+#                 "is_pull_request": _is_pull_request(issue),
+#                 "html_url": issue.html_url,
+#                 "comments_count": issue.comments,
+#             }
+#         )
+
+#     _write_jsonl(os.path.join(out_dir, filename), records)
+
+
+# def save_issue_comments(
+#     repo_url: str,
+#     out_dir: str = "comments",
+#     filename: str = "comments.jsonl",
+#     token: str = "",
+#     include_prs: bool = False,
+# ):
+#     """
+#     Saves all issue comments (including comments on PR threads as "issue comments")
+#     as JSON Lines.
+
+#     Args:
+#         repo_url: GitHub repo URL
+#         out_dir: output directory (default: "comments")
+#         filename: output file name (default: "comments.jsonl")
+#         token: GitHub token or env var
+#         include_prs: include PR issues when iterating (default: False)
+#     """
+#     g = _make_github(token)
+#     owner, name = _parse_repo_url(repo_url)
+#     repo = g.get_repo(f"{owner}/{name}")
+
+#     print("====== Adding issues' comments... ======")
+#     sleep(1.0)
+
+#     records = []
+#     for issue in repo.get_issues(state="all"):
+#         if not include_prs and _is_pull_request(issue):
+#             continue
+#         for c in issue.get_comments():
+#             print("===")
+#             print(f"number: {c.id}")
+#             print(f"body: {c.body}")
+#             print("=======")
+#             records.append(
+#                 {
+#                     "repo": f"{owner}/{name}",
+#                     "issue_number": issue.number,
+#                     "issue_title": issue.title or "",
+#                     "comment_id": c.id,
+#                     "user": getattr(c.user, "login", None),
+#                     "body": c.body or "",
+#                     "created_at": c.created_at,
+#                     "updated_at": c.updated_at,
+#                     "html_url": c.html_url,
+#                 }
+#             )
+
+#     _write_jsonl(os.path.join(out_dir, filename), records)
+
+
+# if __name__ == "__main__":
+#     import argparse
+
+#     ap = argparse.ArgumentParser(
+#         description="Dump GitHub repo code, issues, and comments."
+#     )
+#     ap.add_argument("repo_url", help="GitHub repository URL")
+#     ap.add_argument("--token", help="GitHub token (or set env GITHUB_TOKEN)")
+#     ap.add_argument(
+#         "--ref",
+#         help="Branch/Tag/Commit for code archive (default: repo default branch)",
+#     )
+#     ap.add_argument(
+#         "--include-prs",
+#         action="store_true",
+#         help="Include PRs when exporting issues & comments",
+#     )
+#     args = ap.parse_args()
+
+#     download_codebase(args.repo_url, token=args.token, ref=args.ref)
+#     save_issues(args.repo_url, token=args.token, include_prs=args.include_prs)
+#     save_issue_comments(args.repo_url, token=args.token, include_prs=args.include_prs)
+#     print("Done.")
