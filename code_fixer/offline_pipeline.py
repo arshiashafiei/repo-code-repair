@@ -6,12 +6,12 @@ from langchain_core.messages import AIMessage
 import openai
 from pydantic import BaseModel
 
-from process_layer import LLM, RETRIEVER_LLM
-from process_layer import context_retriever, build_context_payload_from_docs, retriever_bm25_docs, add_line_numbers
-from log import log_and_print
-from io_utils import get_project_tree, get_file_content
-from patch_output import PatchSuggestions, DiffViewEdits, FilesToEdit
-from prompts import OUTPUT_FORMAT, OUTPUT_FORMAT_FILESTOEDIT, USER_PROMPT_FILESTOEDIT, USER_PROMPT_V7, SYSTEM_PROMPT_PYTHON_PROGRAMMER
+from .process_layer import LLM, RETRIEVER_LLM
+from .process_layer import context_retriever, build_context_payload_from_docs, retriever_bm25_docs, add_line_numbers
+from .log import log_and_print
+from .io_utils import get_project_tree, get_file_content
+from .patch_output import PatchSuggestions, DiffViewEdits, FilesToEdit
+from .prompts import OUTPUT_FORMAT, OUTPUT_FORMAT_FILESTOEDIT, USER_PROMPT_FILESTOEDIT, USER_PROMPT_V7, SYSTEM_PROMPT_PYTHON_PROGRAMMER
 
 
 def offline_pipeline_file(prompt: str,

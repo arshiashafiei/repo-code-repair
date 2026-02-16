@@ -4,12 +4,12 @@ import difflib
 import hashlib
 from typing import Any
 
-from io_utils import get_file_content
-from github_utils import download_codebase, save_issues_and_comments_before_commit, get_commit_date_posix
-from patch_output import PatchSuggestions
-from offline_pipeline import offline_pipeline_file, OUTPUT_FORMAT, USER_PROMPT_V7
-from process_layer import LLM
-from log import log_and_print 
+from .io_utils import get_file_content
+from .github_utils import download_codebase, save_issues_and_comments_before_commit, get_commit_date_posix
+from .patch_output import PatchSuggestions
+from .offline_pipeline import offline_pipeline_file, OUTPUT_FORMAT, USER_PROMPT_V7
+from .process_layer import LLM
+from .log import log_and_print 
 
 
 def _apply_patch_with_stats(patch: PatchSuggestions, buggy_file_content: str) -> tuple[str, dict[str, Any]]:

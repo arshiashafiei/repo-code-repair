@@ -14,8 +14,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_core.prompts import PromptTemplate
 
-import log
-from process_layer import LLM
+from . import log
+from .process_layer import LLM
 
 
 DISCUSSION_SUMMARY_PROMPT = """You are analyzing a GitHub issue discussion to help with Automated Program Repair (APR).

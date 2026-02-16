@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 from pathlib import Path
 import jsonlines
 
-from log import log_and_print
+from .log import log_and_print
 
 
 TEXT_EXTS = {

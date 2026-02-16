@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-fixer"
+version = "0.1.0"
+description = "Automated Program Repair with LLMs using Retrieval-Augmented Generation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Arshia Shafiei", email = "your.email@example.com"}
+]
+keywords = ["automated-program-repair", "llm", "rag", "code-review", "patch-generation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    "accelerate>=1.12.0",
+    "aiohttp>=3.13.0",
+    "chromadb>=1.4.0",
+    "datasets>=4.5.0",
+    "google-genai>=1.55.0",
+    "huggingface-hub>=0.36.0",
+    "jsonlines>=4.0.0",
+    "langchain>=1.2.0",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.0",
+    "langchain-core>=1.2.0",
+    "langchain-google-genai>=4.0.0",
+    "langchain-huggingface>=1.2.0",
+    "langchain-ollama>=1.0.0",
+    "langchain-openai>=1.1.0",
+    "langchain-text-splitters>=1.1.0",
+    "ollama>=0.6.0",
+    "openai>=2.16.0",
+    "PyGithub>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/arshiashafiei/code-fixer"
+Repository = "https://github.com/arshiashafiei/code-fixer"
+Issues = "https://github.com/arshiashafiei/code-fixer/issues"
+
+[tool.setuptools]
+packages = ["code_fixer"]
+
+[tool.setuptools.package-data]
+code_fixer = ["*.json", "*.txt"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true

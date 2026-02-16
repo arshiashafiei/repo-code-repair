@@ -1,8 +1,8 @@
 from difflib import unified_diff
 from typing import List
-from patch_output import PatchSuggestions, DiffViewEdits
-from io_utils import get_file_content
-from log import log_and_print
+from .patch_output import PatchSuggestions, DiffViewEdits
+from .io_utils import get_file_content
+from .log import log_and_print
 
 import re
 import subprocess

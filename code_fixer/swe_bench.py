@@ -12,15 +12,15 @@ from dataclasses import dataclass
 from difflib import unified_diff
 from typing import Dict, List, Optional, Set, Tuple
 
-from github_utils import download_codebase, get_commit_date_posix, save_issues_and_comments_before_commit
-from offline_pipeline import offline_pipeline_file, offline_pipeline_issue
-from patch_output import PatchSnippet, PatchSuggestions, DiffViewEdits, FilesToEdit
-from process_layer import LLM
-from prompts import OUTPUT_FORMAT, USER_PROMPT_COT_ISSUES, USER_PROMPT_ISSUES, USER_PROMPT_MULTIFILE_COT, USER_PROMPT_MULTIFILE_ZERO_SHOT, USER_PROMPT_V7, OUTPUT_FORMAT_Diffview
-from io_utils import get_file_content
-from log import log_and_print
-from bugsinpy_bugs import apply_patch
-from apply_patch import validate_patch, sanitize_patch
+from .github_utils import download_codebase, get_commit_date_posix, save_issues_and_comments_before_commit
+from .offline_pipeline import offline_pipeline_file, offline_pipeline_issue
+from .patch_output import PatchSnippet, PatchSuggestions, DiffViewEdits, FilesToEdit
+from .process_layer import LLM
+from .prompts import OUTPUT_FORMAT, USER_PROMPT_COT_ISSUES, USER_PROMPT_ISSUES, USER_PROMPT_MULTIFILE_COT, USER_PROMPT_MULTIFILE_ZERO_SHOT, USER_PROMPT_V7, OUTPUT_FORMAT_Diffview
+from .io_utils import get_file_content
+from .log import log_and_print
+from .bugsinpy_bugs import apply_patch
+from .apply_patch import validate_patch, sanitize_patch
 
 # from summarize_discussions import summarize_all_discussions 
 

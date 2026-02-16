@@ -9,11 +9,11 @@ from langchain_ollama import ChatOllama
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 
-from log import log_and_print
-from io_utils import get_project_tree, get_file_content, iter_text_files
-from patch_output import PatchSuggestions
-from vector_store import build_vector_store, make_id
-from apply_patch import extract_file_documentation
+from .log import log_and_print
+from .io_utils import get_project_tree, get_file_content, iter_text_files
+from .patch_output import PatchSuggestions
+from .vector_store import build_vector_store, make_id
+from .apply_patch import extract_file_documentation
 
 
 LLM = None
