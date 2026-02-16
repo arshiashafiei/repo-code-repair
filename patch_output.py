@@ -4,6 +4,14 @@ from typing import Any, Iterable, List, Literal, Optional, Tuple
 import log
 
 
+class DiffViewEdits(BaseModel):
+    patch: str
+
+
+class FilesToEdit(BaseModel):
+    files_for_editing: List[str] = Field(default_factory=list)
+
+
 Category = Literal[
     "SYNTAX_ERROR",
     "LINTING",
@@ -37,8 +45,6 @@ class MultiFileSuggestions(BaseModel):
     edits: List[MultiFileSnippet] = Field(default_factory=list)
 
 
-class DiffviewEdits(BaseModel):
-    edits: str
 
 
 def pretty_print_response(resp: PatchSuggestions) -> None:
