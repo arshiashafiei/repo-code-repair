@@ -4,12 +4,13 @@ A tool for automated code review and patch generation using Large Language Model
 
 ## TODO:
 
+- [ ] ‍‍‍‍```
 - [x] Git commit naming conventions and best practices
-- [ ] How to validate and check my answers?
-  - [ ] Ask chatgpt and Gemini about how to measure my program success rate (number 3)
-  - [ ] Find things similar to SWE-BENCH
-- [ ] Take a look at SWE-Bench to understand how to incorporate it with my program
-- [ ] Record and Store statistics about my answers to understand the effectiveness of my work (e.g. different models, prompts, techniques, and so on)
+- [x] How to validate and check my answers?
+  - [x] Ask chatgpt and Gemini about how to measure my program success rate (number 3)
+  - [x] Find things similar to SWE-BENCH
+- [x] Take a look at SWE-Bench to understand how to incorporate it with my program
+- [x] Record and Store statistics about my answers to understand the effectiveness of my work (e.g. different models, prompts, techniques, and so on)
   - [ ] What stats should be stored? → **SWE-bench provides standard metrics!**
   
 **Ideas:**
@@ -50,7 +51,8 @@ A tool for automated code review and patch generation using Large Language Model
 I need a prompt that handles file review and/or issue resolving, either one prompt for both, or two different ones for each of them. Also, the focus of the prompts should be on specific aspects.
 
 I need something to use that prompt
-- [ ] cli for creating input (selecting file or issue)
+
+- [x] cli for creating input (selecting file or issue)
 
 **Output:**
 
@@ -58,8 +60,8 @@ I need something to use that prompt
 
 **Checking answers:**
 
-- [ ] Find a dataset of issues or files with known problems and fixes, either one would suffice for now...
-- [ ] Create a simple framework that tests your code using this dataset and record relevant output
+- [x] Find a dataset of issues or files with known problems and fixes, either one would suffice for now...
+- [x] Create a simple framework that tests your code using this dataset and record relevant output
 - [ ] Log the number of correct answers, token used and recieved, how many times should it be run so it would be valid?(is there any standard?), and compare with other tools and ways
 
 Create API endpoints for:
