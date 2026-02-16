@@ -1,11 +1,13 @@
+import subprocess
 from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 from pathlib import Path
 import jsonlines
 
+from log import log_and_print
+
 
 TEXT_EXTS = {
-    ".py", ".md", ".txt", ".rst", ".toml", ".yaml", ".yml", ".json", ".ini", ".cfg",
-    ".dockerfile", ".env", ".sh", ".bat",
+    ".py"
 }
 
 
@@ -14,26 +16,24 @@ def get_file_content(path: str) -> str:
     Returns [str] file text content from [str] a path.
     Accepts both absolute paths and relative paths (which will be prefixed with 'codebase/').
     """
-    try:
-        p = Path(path)
-        if not p.is_absolute() and not p.exists():
-            p = Path("codebase") / path
-        return p.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        return ""
-    except OSError:
-        return ""
+    p = Path(path)
+    if not p.is_absolute() and not p.exists():
+        p = Path("codebase") / path
+    return p.read_text(encoding="utf-8")
 
 
 def iter_text_files(codebase_root: str) -> Iterable[Path]:
+    log_and_print(f"Checking project root dir: {codebase_root}")
     root = Path(codebase_root)
     for p in root.rglob("*"):
+        log_and_print(f"Checking file: {p.as_posix()}")
         if p.is_dir():
             continue
 
         if any(part in {".git", "__pycache__", ".venv", "venv", "node_modules"} for part in p.parts):
             continue
         if p.suffix.lower() in TEXT_EXTS or p.name.lower() in {"dockerfile"}:
+            log_and_print(f"Yielding file: {p.as_posix()}")
             yield p
 
 
@@ -68,3 +68,23 @@ def get_issues_comments_content(issue_number: int) -> list[tuple[str, str]]:
                 comments.append((comment["commment_id"], comment["body"]))
                 
     return comments
+
+
+def get_project_tree(project_root: str) -> str:
+    try:
+        tree = subprocess.run(
+            ["tree", "--dirsfirst", "-anqf", "--noreport", "--gitignore", "-P", "*.py", "--prune"],
+            cwd=project_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        print(f"✓ Successfully got project tree")
+        return tree.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Could not get project tree: {e.stderr.strip() if e.stderr else str(e)}")
+        return ""
+    except Exception as e:
+        print(f"Project tree recieve failed: {e}")
+        return ""
