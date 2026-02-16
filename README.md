@@ -1,6 +1,167 @@
-# Automated Program Repair with LLMs
+# Code Fixer
 
-A tool for automated code review and patch generation using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG).
+A Python library for automated code review and patch generation using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG).
+
+## Features
+
+- 🔍 **Automated Code Review**: Analyze code and generate patches for bugs and code smells
+- 🤖 **Multiple LLM Support**: Works with OpenAI, Google Gemini, Ollama, and DeepSeek
+- 📚 **RAG-Powered Context**: Uses vector stores for intelligent context retrieval
+- 🔧 **GitHub Integration**: Fetch issues, PRs, and repository data
+- 📊 **SWE-Bench Compatible**: Evaluate patches using standard metrics
+- 🎯 **Flexible Prompting**: Multiple prompt templates for different repair scenarios
+
+## Installation
+
+### From Source
+
+```bash
+git clone https://github.com/arshiashafiei/code-fixer.git
+cd code-fixer
+pip install -e .
+```
+
+### For Development
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Quick Start
+
+```python
+from code_fixer import get_github_client, fetch_issue, build_vector_store
+from code_fixer.process_layer import LLM
+from code_fixer.offline_pipeline import offline_pipeline_issue
+
+# Initialize GitHub client
+github = get_github_client()
+
+# Fetch an issue
+issue = fetch_issue(github, "owner/repo", 123)
+
+# Build vector store for context retrieval
+vector_store = build_vector_store(
+    codebase_root="path/to/codebase",
+    issues_jsonl_path="path/to/issues.jsonl"
+)
+
+# Generate patch suggestions
+result = offline_pipeline_issue(
+    prompt="Fix the bug described in the issue",
+    local_project_path="path/to/codebase",
+    local_issues_path="path/to/issues",
+    issue_number=123
+)
+
+print(result.content)
+```
+
+## Configuration
+
+Create a `.env` file with your API keys:
+
+```env
+OPENAI_API_KEY=your_openai_key
+GOOGLE_API_KEY=your_google_key
+GITHUB_TOKEN=your_github_token
+```
+
+## Usage Examples
+
+### Analyze a Single File
+
+```python
+from code_fixer.offline_pipeline import offline_pipeline_file
+
+result = offline_pipeline_file(
+    prompt="Review this file for bugs and code smells",
+    local_project_path="path/to/project",
+    local_issues_path="path/to/issues",
+    local_file_path="src/module.py",
+    top_k=3  # Number of similar contexts to retrieve
+)
+```
+
+### Compute Patch Metrics
+
+```python
+from code_fixer.swe_bench import compute_patch_metrics
+
+metrics = compute_patch_metrics(
+    candidate_patch="...",
+    reference_patch="..."
+)
+
+print(f"Exact match: {metrics['exact_match']}")
+print(f"BLEU score: {metrics['bleu4_changed_lines']}")
+```
+
+### Clone and Analyze Repository
+
+```python
+from code_fixer.github_utils import clone_repo, download_codebase
+
+# Clone repo at specific commit
+clone_repo(
+    repo_url="https://github.com/owner/repo",
+    target_dir="./projects/repo",
+    commit_hash="abc123"
+)
+
+# Download and save codebase snapshot
+download_codebase(
+    repo_url="https://github.com/owner/repo",
+    commit_hash="abc123",
+    output_dir="./codebase"
+)
+```
+
+## API Reference
+
+### Main Modules
+
+- `github_utils`: GitHub API interactions and repository management
+- `vector_store`: Build and query vector stores for context retrieval
+- `process_layer`: LLM configuration and context building
+- `swe_bench`: Patch generation and evaluation
+- `patch_output`: Structured patch output models
+- `prompts`: Prompt templates for different scenarios
+
+### Key Functions
+
+#### `build_vector_store(codebase_root, issues_jsonl_path, batch_size=500)`
+Create a vector store from codebase files and issues.
+
+#### `get_github_client(token=None)`
+Initialize authenticated GitHub client.
+
+#### `fetch_issue(github, repo_name, issue_number)`
+Fetch issue details from GitHub.
+
+#### `compute_patch_metrics(candidate_patch, reference_patch)`
+Evaluate patch quality using multiple metrics.
+
+## Development
+
+### Running Tests
+
+```bash
+pytest tests/
+```
+
+### Code Formatting
+
+```bash
+black code_fixer/
+ruff check code_fixer/
+```
+
+### Type Checking
+
+```bash
+mypy code_fixer/
+```
 
 ## TODO:
 
