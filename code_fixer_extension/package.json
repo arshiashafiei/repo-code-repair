@@ -1,0 +1,44 @@
+{
+  "name": "code-fixer",
+  "displayName": "Code Fixer",
+  "description": "Automated Program Repair – browse SWE-bench results, apply patches, and inspect issues locally",
+  "version": "0.1.0",
+  "publisher": "arshiashafiei",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeFixer.newRun",
+        "title": "Code Fixer: New Repair Run"
+      },
+      {
+        "command": "codeFixer.showPanel",
+        "title": "Code Fixer: Show Panel"
+      }
+    ],
+    "configuration": {
+      "title": "Code Fixer",
+      "properties": {}
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {}
+}
