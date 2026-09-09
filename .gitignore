@@ -21,7 +21,7 @@ dist/
 .eggs/
 
 # Test results
-results/
+# results/
 .pytest_cache/
 .coverage
 htmlcov/
