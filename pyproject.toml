@@ -16,7 +16,7 @@ keywords = ["automated-program-repair", "llm", "rag", "code-review", "patch-gene
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -30,6 +30,8 @@ dependencies = [
     "accelerate>=1.12.0",
     "aiohttp>=3.13.0",
     "chromadb>=1.4.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
     "datasets>=4.5.0",
     "google-genai>=1.55.0",
     "huggingface-hub>=0.36.0",
@@ -47,6 +49,8 @@ dependencies = [
     "openai>=2.16.0",
     "PyGithub>=2.0.0",
     "python-dotenv>=1.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
 ]
 
 [project.optional-dependencies]
@@ -64,7 +68,7 @@ Repository = "https://github.com/arshiashafiei/code-fixer"
 Issues = "https://github.com/arshiashafiei/code-fixer/issues"
 
 [tool.setuptools]
-packages = ["code_fixer"]
+packages = ["code_fixer", "api", "api.routers"]
 
 [tool.setuptools.package-data]
 code_fixer = ["*.json", "*.txt"]
