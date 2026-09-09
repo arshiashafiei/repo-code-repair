@@ -1,362 +1,256 @@
-# Code Fixer
+# Repository-Level Code Repair
 
-A Python library for automated code review and patch generation using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG).
+A research implementation of automated program repair using LLMs, repository retrieval, structured patch generation, and patch applicability checks. Developed as part of a bachelor's thesis.
 
-## Features
+The Python package is named `code_fixer`. The repository also includes a FastAPI backend and two VS Code extensions for inspecting saved repair results.
 
-- 🔍 **Automated Code Review**: Analyze code and generate patches for bugs and code smells
-- 🤖 **Multiple LLM Support**: Works with OpenAI, Google Gemini, Ollama, and DeepSeek
-- 📚 **RAG-Powered Context**: Uses vector stores for intelligent context retrieval
-- 🔧 **GitHub Integration**: Fetch issues, PRs, and repository data
-- 📊 **SWE-Bench Compatible**: Evaluate patches using standard metrics
-- 🎯 **Flexible Prompting**: Multiple prompt templates for different repair scenarios
+**Status: research prototype.** Core components are implemented, but the offline issue workflow has known blockers. The current VS Code UI displays existing results, it does not invoke the backend or generate new patches. See [Implementation audit and cleanup guide](PROJECT_AUDIT.md) for verified behavior, defects, and cleanup candidates.
 
-## Installation
+## TL;DR — what it does and how to start
 
-### From Source
+This project explores fixing Python code with an LLM: find relevant repository files and issue discussions, include that context in the model's prompt, generate a patch, and check whether Git can apply it. That retrieved context is the RAG part. A patch that applies still needs tests and human review.
+
+**Backend setup:** install Python 3.12+, Git, and `tree`, then run these commands from the repository root in a fresh checkout:
 
 ```bash
-git clone https://github.com/arshiashafiei/code-fixer.git
-cd code-fixer
-pip install -e .
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e . langchain-deepseek rank-bm25
+python verify_install.py
+
+export DEEPSEEK_API_KEY='your-key'
+export DEEPSEEK_API_KEY2="$DEEPSEEK_API_KEY"
+export GITHUB_TOKEN='your-github-token'
+
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-### For Development
+Open `http://127.0.0.1:8000/docs` to explore the API. For retrieval and repair, also run Ollama on port 11434, download `granite-embedding:latest` with `ollama pull granite-embedding:latest`, and provision Chroma on port 8088. See [retrieval-service setup](#retrieval-services) for the current Compose and client-URL caveats. Starting the API alone does not make those services ready.
+
+**Just browse saved results in VS Code?** Install Node.js/npm and run:
 
 ```bash
-pip install -e ".[dev]"
+npm --prefix code_fixer_extension install
+npm --prefix code_fixer_extension run compile
 ```
 
-## Quick Start
+Launch the extension in an Extension Development Host with this repository as the workspace, then open **Code Fixer: Show Panel**. It needs saved data in `results/`, `issues/`, and `projects/`; no backend or LLM is needed. See [viewer instructions](#vs-code-result-viewer). Its checkout action can discard local changes, so use disposable clones.
+
+**Before running experiments:** this is a prototype, not a verified one-command repair setup. Fresh dependency installation and live services remain unverified; the offline issue workflow has known blockers. Read [the audit](PROJECT_AUDIT.md) first. The benchmark runner produces patches and comparison metrics, but does not run the official SWE-bench test harness.
+
+## What is implemented?
+
+| Capability | Current implementation |
+| --- | --- |
+| Repository preparation | GitHub metadata access, local Git initialization/fetch, and checkout under `projects/`. |
+| Issue context | Download issues/PRs and comments using commit-based time cutoffs; optional LLM discussion summaries. |
+| File localization | BM25 retrieves 30 candidate files; AST-derived file descriptions are passed to an LLM for file selection. |
+| Semantic retrieval | Granite embeddings through Ollama, overlapping character chunks, and a persistent Chroma collection containing files and optional issues. |
+| Patch generation | Separate file and issue functions; Pydantic models represent snippet edits or unified diffs. |
+| Validation | Diff-format heuristics, patch sanitization, and optional `git apply --check`. These do not establish behavioral correctness. |
+| Benchmark tooling | SWE-bench Lite development-split patch generation, JSONL results, and reference-patch comparison metrics. Official test-harness execution is not integrated. |
+| HTTP API | Repository, ingestion, indexing, file-selection, retrieval, repair, and patch-check routes. |
+| VS Code UI | Local result/issue browsing, patch display, Git applicability checks, checkout, and patch application. No live LLM/API calls. |
+
+The scanner currently includes Python files and Dockerfiles. This is primarily a Python repair prototype, not a validated general-purpose repair tool for every language.
+
+## Retrieval and generation
+
+The intended issue workflow is:
+
+1. Prepare a repository at a selected commit and collect historical issue data.
+2. Retrieve candidate files with BM25 and select target files using an LLM.
+3. Retrieve additional code/issue context from Chroma.
+4. Combine the issue, target-file contents, retrieved context, and output instructions.
+5. Generate a patch, sanitize it, and check whether it applies; retry on failures.
+
+Retrieving repository artifacts and including them in generation prompts is the RAG component. BM25 localization and vector context retrieval are separate stages; the code does not implement a fused sparse/dense ranking algorithm. Patch validation is a separate post-generation step.
+
+**Current exception:** `context_retriever(..., with_tree=False)` returns an empty string because of conditional-expression precedence. The offline issue workflow uses this setting. It also passes the directory `comments` to a reader that expects a JSONL file, which can stop execution earlier. The file workflow and API retrieval route use the default `with_tree=True`. Do not assume historical benchmark runs exercised the intended semantic-context stage without checking their code revision and prompt logs.
+
+## Setup
+
+Run Python commands from the repository root: several helpers use relative data paths.
+
+### Python environment
+
+Use Python 3.12 or newer for the current source syntax; `.python-version` records 3.13.5. The `>=3.9` declaration in `pyproject.toml` is outdated. Dependency resolution on a fresh environment has not been verified.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m pip install langchain-deepseek rank-bm25
+python verify_install.py
+```
+
+The second install command supplies packages used by the current code but missing from `pyproject.toml`. The verification script checks imports, callable exports, and model availability; it does not test external services or end-to-end repair.
+
+`requirements.txt` is a large environment snapshot with GPU/ML dependencies and is not a minimal installation guide.
+
+### Model credentials
+
+The active constructors in `code_fixer/process_layer.py` use DeepSeek `deepseek-chat`:
+
+```bash
+export DEEPSEEK_API_KEY='your-generation-key'
+export DEEPSEEK_API_KEY2='your-file-selection-key'
+export GITHUB_TOKEN='your-github-token'
+```
+
+You can set both DeepSeek variables to the same key. The file-selection constructor reads `DEEPSEEK_API_KEY2` directly; it does not fall back to the first key.
+
+Environment variables must be present in the process. The application does not automatically load `.env`. Other provider configurations appear as imports or commented examples; there is no user-facing provider selector.
+
+Retrieved source code and issue text are sent to the configured generation provider. Embedding runs use the local Ollama service.
+
+### Retrieval services
+
+The current vector-store code uses:
+
+| Service | Address / model |
+| --- | --- |
+| Ollama | Local port 11434; `granite-embedding:latest` |
+| Chroma | `127.0.0.1:8088` |
+| File-tree utility | The `tree` executable, invoked by context/tree helpers |
+
+With Ollama running, download its embedding model:
+
+```bash
+ollama pull granite-embedding:latest
+```
+
+Provision a compatible Chroma server on port 8088 before using vector retrieval. The checked-in Compose file needs correction: its default image reference expands to `chromadb/chroma@latest`, which is not a valid tag reference. Review the image reference and persistence settings before starting it.
+
+The embedding client currently uses `base_url="127.0.0.1:11434"`; an explicit `http://` URL may be needed by the installed client. These live-service connections were not verified in the documentation audit. `CHROMA_HOST` and `CHROMA_PORT` in API configuration do not override the hardcoded vector-store client.
+
+## FastAPI backend
+
+After installing dependencies and exporting credentials:
+
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+- Health endpoint: `http://127.0.0.1:8000/`
+- Interactive API schema: `http://127.0.0.1:8000/docs`
+
+The health endpoint reports that the application is responding, not that GitHub, Chroma, Ollama, or the LLM provider are ready.
+
+Use the schema to follow this sequence:
+
+1. Register a repository and select a commit.
+2. Ingest issues with a commit hash.
+3. Build the vector index. The BM25 “build” endpoint only checks eligible files; BM25 is built during retrieval.
+4. Call file selection and context retrieval.
+5. Supply the selected files, issue text, and returned context to the repair endpoint.
+6. Review the resulting patch and use the patch-check endpoints.
+
+The API exposes separate stages, not a single automatic end-to-end route. It has no patch-application endpoint. Use disposable repository clones: the API performs filesystem and Git operations and is intended for local development, without application-level authentication.
+
+## Python usage
+
+### Compare candidate and reference patches
+
+This example uses the implemented metric signature and return keys:
 
 ```python
-from code_fixer import get_github_client, fetch_issue, build_vector_store
-from code_fixer.process_layer import LLM
-from code_fixer.offline_pipeline import offline_pipeline_issue
+from code_fixer.swe_bench import compute_patch_metrics
 
-# Initialize GitHub client
-github = get_github_client()
+candidate = """diff --git a/example.py b/example.py
+--- a/example.py
++++ b/example.py
+@@ -1 +1 @@
+-x = 1
++x = 2
+"""
+reference = candidate
 
-# Fetch an issue
-issue = fetch_issue(github, "owner/repo", 123)
-
-# Build vector store for context retrieval
-vector_store = build_vector_store(
-    codebase_root="path/to/codebase",
-    issues_jsonl_path="path/to/issues.jsonl"
-)
-
-# Generate patch suggestions
-result = offline_pipeline_issue(
-    prompt="Fix the bug described in the issue",
-    local_project_path="path/to/codebase",
-    local_issues_path="path/to/issues",
-    issue_number=123
-)
-
-print(result.content)
+metrics = compute_patch_metrics(candidate, reference)
+print(metrics["exact_match"])  # 1
+print(metrics["file_match"])   # 1.0
 ```
 
-## Configuration
+`patch_applicable`, `attempt_number`, and `latency_s` are supplied by the caller; this metric function does not apply patches or run tests.
 
-Create a `.env` file with your API keys:
+### Review a local file
 
-```env
-OPENAI_API_KEY=your_openai_key
-GOOGLE_API_KEY=your_google_key
-GITHUB_TOKEN=your_github_token
-```
-
-## Usage Examples
-
-### Analyze a Single File
+After configuring the retrieval services and provider, adapt these paths:
 
 ```python
 from code_fixer.offline_pipeline import offline_pipeline_file
 
 result = offline_pipeline_file(
-    prompt="Review this file for bugs and code smells",
-    local_project_path="path/to/project",
-    local_issues_path="path/to/issues",
-    local_file_path="src/module.py",
-    top_k=3  # Number of similar contexts to retrieve
+    prompt="Review this file and suggest focused bug fixes.",
+    local_project_path="projects/example",
+    local_issues_path="issues/example/issues.jsonl",
+    local_file_path="projects/example/example.py",
+    top_k=3,
 )
+print(result.model_dump_json(indent=2))
 ```
 
-### Compute Patch Metrics
+The issues argument must point to an existing JSONL file, which may be empty. The return value is a `PatchSuggestions` model with `file_path_to_edit` and `edits`, not an object with `.content`. This example is source-checked; live inference has not been verified.
 
-```python
-from code_fixer.swe_bench import compute_patch_metrics
+For issue generation, `offline_pipeline_issue` accepts issue **text** via `issue_content`, not an issue number. Its current default output schema conflicts with a later `.patch` access. Use `DiffViewEdits` for unified-diff output after resolving the offline workflow blockers listed in the audit.
 
-metrics = compute_patch_metrics(
-    candidate_patch="...",
-    reference_patch="..."
-)
+## VS Code result viewer
 
-print(f"Exact match: {metrics['exact_match']}")
-print(f"BLEU score: {metrics['bleu4_changed_lines']}")
-```
+`code_fixer_extension/` is the workspace-relative webview extension. It reads:
 
-### Clone and Analyze Repository
+- `results/swe_bench_lite_results.jsonl`: saved predictions and metrics.
+- `issues/`: local issue records.
+- `projects/<repo-name>/`: source files and Git working trees.
 
-```python
-from code_fixer.github_utils import clone_repo, download_codebase
-
-# Clone repo at specific commit
-clone_repo(
-    repo_url="https://github.com/owner/repo",
-    target_dir="./projects/repo",
-    commit_hash="abc123"
-)
-
-# Download and save codebase snapshot
-download_codebase(
-    repo_url="https://github.com/owner/repo",
-    commit_hash="abc123",
-    output_dir="./codebase"
-)
-```
-
-## API Reference
-
-### Main Modules
-
-- `github_utils`: GitHub API interactions and repository management
-- `vector_store`: Build and query vector stores for context retrieval
-- `process_layer`: LLM configuration and context building
-- `swe_bench`: Patch generation and evaluation
-- `patch_output`: Structured patch output models
-- `prompts`: Prompt templates for different scenarios
-
-### Key Functions
-
-#### `build_vector_store(codebase_root, issues_jsonl_path, batch_size=500)`
-Create a vector store from codebase files and issues.
-
-#### `get_github_client(token=None)`
-Initialize authenticated GitHub client.
-
-#### `fetch_issue(github, repo_name, issue_number)`
-Fetch issue details from GitHub.
-
-#### `compute_patch_metrics(candidate_patch, reference_patch)`
-Evaluate patch quality using multiple metrics.
-
-## Development
-
-### Running Tests
+It needs Node.js/npm, VS Code, Git, and saved local data. It does not need the API, Ollama, or a running LLM to browse results.
 
 ```bash
-pytest tests/
+cd code_fixer_extension
+npm install
+npm run compile
 ```
 
-### Code Formatting
+Launch an Extension Development Host with this directory as the extension development path, and open the repository root as its workspace. Then use **Code Fixer: New Repair Run** or **Code Fixer: Show Panel**. These commands load an existing result; they do not start inference. Root-level F5 launch settings may exist locally but are ignored by Git.
 
-```bash
-black code_fixer/
-ruff check code_fixer/
-```
+**Checkout uses `git checkout -f` and can discard local changes.** Apply writes the displayed patch to the selected clone. Use disposable clones and review patches before applying them.
 
-### Type Checking
+`custom_extension/` is an alternative tree/diff viewer with hardcoded local paths and benchmark instances. It is not required by the webview extension or Python API.
 
-```bash
-mypy code_fixer/
-```
+## Benchmark scope
 
-## TODO:
+`code_fixer/swe_bench.py:run_swebench` loads the SWE-bench Lite `dev` split, prepares repositories, generates patches, and writes:
 
-- [ ] ‍‍‍‍```
-- [x] Git commit naming conventions and best practices
-- [x] How to validate and check my answers?
-  - [x] Ask chatgpt and Gemini about how to measure my program success rate (number 3)
-  - [x] Find things similar to SWE-BENCH
-- [x] Take a look at SWE-Bench to understand how to incorporate it with my program
-- [x] Record and Store statistics about my answers to understand the effectiveness of my work (e.g. different models, prompts, techniques, and so on)
-  - [ ] What stats should be stored? → **SWE-bench provides standard metrics!**
-  
-**Ideas:**
+- `results/swe_bench_lite_results.jsonl`
+- `results/swe_bench_lite_metrics.jsonl`
 
-- [ ] Knowledge pssobility (it is simillar to a RAG system)
-- [ ] Graph based search - What are the nodes?
-- [ ] Relevant files and issues (What best works for each?)
-- [ ] RAG: retrieving from {a previously solved issues and problematic files} or {}
-- [ ] Prompting techniques: one-shot, few-shot, zero-shot, persona, chain-of-thoughts, and so on.
-- [ ] Write tests for the project using something else (LLMs, tools, or programmers...) then fix those parts or functions that are wrong according to these tests.
-- [ ] Acting like a human, talking with the model until satisfied. Maybe two models talking with each other, one act as a developer and the other as the tool.
+Metrics include normalized exact match, edit similarity, BLEU-4 over changed lines, file-set overlap, hunk overlap, line counts, applicability, attempts, and latency.
 
-**Providing context:**
+This runner does **not** execute the official SWE-bench test harness. Patch applicability and textual similarity must not be presented as a test-based resolved rate. A reproducible resolved-rate claim needs separate harness reports and the exact evaluation configuration.
 
-- [x] read an issue
-- [x] read an issue disscussion
-- [x] creating input
-  - [x] Look at papers for prompt samples (SWE_FIXER)
-  - [x] ask gpt for prompt samples:
-    - [x] What prompt can I give to an llm to create a patch code snippet that focuses on different aspects regarding issue resolving, technical debts, code issues, bugs and so on?
-    - [x] Take a look at papers focusing on APR and this problem regardless of said aspects
-    - [x] I want some prompt that are used for automated program repair in academic contexts
-    can you help me find papers and their respective prompts
-    - [x] What papers focus on program repair using a github issue
-    - [x] In these papers, how they find the buggy or problematic line, function, or hunk of code?
-    - [x] yes I meant code review / refactoring / smell detection. but tell me if there are any that suggest fixes in structured output that can be applied to the code in question. In another aspect, tell me if there are any of these code review or APR papers that try to solve a github issue
-  - [x] Creating system prompt
-  - [x] Creating human prompt
-    - [x] A simple similarity search providing most similar files and/or issues to the query(file/issue)
-      - [x] Add all files and issues to a vector store using an embedding
-      - [x] Search top-k (top-3) issues/files to the query and add to the context
-      - [x] What data should be given about the files/issues?
-        - [ ] path + file name
-        - [ ] Line numbers
-        - [ ] Commit message
-        - [ ] and so on?(priority/severity?, confidence)
+Before running experiments, resolve the offline pipeline bugs and initialize the results JSONL file: the runner opens it for reading before its first append. It also loads an unused second dataset, includes `hints_text` on the first attempt, and skips existing records using only instance ID and model name. Those details affect reproducibility and comparisons across prompts.
 
-I need a prompt that handles file review and/or issue resolving, either one prompt for both, or two different ones for each of them. Also, the focus of the prompts should be on specific aspects.
+## Repository layout
 
-I need something to use that prompt
+| Path | Purpose |
+| --- | --- |
+| `code_fixer/` | Retrieval, prompting, patch handling, GitHub ingestion, and benchmark helpers |
+| `api/` | FastAPI application and stage-specific routes |
+| `code_fixer_extension/` | Local webview result viewer |
+| `custom_extension/` | Alternative tree/diff viewer prototype |
+| `examples/` | Older examples with known API mismatches; not verified quick starts |
+| `combined_pipeline.ipynb` | Experimental notebook |
+| `doc.md` | Architecture report; some descriptions exceed current implementation |
+| `QUICKSTART.md` | Older setup guide; use this README for current caveats |
+| `PROJECT_AUDIT.md` | Verification findings and cleanup recommendations |
 
-- [x] cli for creating input (selecting file or issue)
+## Verification and limitations
 
-**Output:**
+The documentation audit checked Python parsing, package imports in an existing environment, the direct API health handler and OpenAPI schema construction, BM25 on a small fixture, metric calculation, real Git dry-run patch checking, and TypeScript compilation. HTTP request handling was not verified. See [the audit](PROJECT_AUDIT.md) for exact results and boundaries.
 
-- [x] structured output in json
+No dedicated `tests/` suite is present. `test.py` launches a benchmark; it is not a unit test. Cloud generation, GitHub ingestion, live vector retrieval, benchmark resolution, and interactive VS Code behavior were not exercised.
 
-**Checking answers:**
+Further limitations include path-based index reuse across commits, truncated retrieved-file context, experimental retry logic, and inconsistent issue-file discovery. The project does not establish automatic technical-debt detection, guaranteed correct repairs, or measured RAG improvement over a no-retrieval baseline.
 
-- [x] Find a dataset of issues or files with known problems and fixes, either one would suffice for now...
-- [x] Create a simple framework that tests your code using this dataset and record relevant output
-- [ ] Log the number of correct answers, token used and recieved, how many times should it be run so it would be valid?(is there any standard?), and compare with other tools and ways
+## License
 
-Create API endpoints for:
-
-- [ ] Getting a file in POST and sending back response(not sure in another enpoint or not)
-- [ ] Getting an issue and ...
-
-export HTTPS_PROXY='http://username:password@proxy_uri:port'
-
-```python
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-model = ChatGoogleGenerativeAI(
-    model="gemini-3-pro-preview",
-    client_args={"proxy": "socks5://user:pass@host:port"},
-)
-```
-
-Below snippet gave me an idea on how to select different options for the user for patching e.g. code smells or bugs. Anything that user choose can be put into the curly braces {}, so python adds that option to the system prompt.
-
-```python
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
- 
-# Initialize model
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0,
-)
- 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant that translates {input_language} to {output_language}."),
-    ("human", "{input}"),
-])
- 
-chain = prompt | llm
-result = chain.invoke({
-    "input_language": "English",
-    "output_language": "German",
-    "input": "I love programming.",
-})
-print(result.content)  # Output: Ich liebe Programmieren.
-```
-
-```
-  Simple Code Review Prompt: Provide a succinct analysis of the code snippet below. Only offer comments
-if significant concerns are identified, ensuring brevity
-without vagueness. Do not describe the functionality
-of the code. Avoid generating new code. Focus solely
-on critical evaluation. If the code is satisfactory, refrain
-from commenting.
-
-  Detailed Code Review Prompt: As a code reviewer, con-
-duct a thorough analysis of the provided code snippet to
-identify any significant issues, including but not limited
-to: runtime errors and edge cases, logic flaws and poten-
-tial bugs, algorithm correctness, gaps in error handling,
-architecture and design patterns, naming conventions
-and readability, performance concerns, maintainability
-issues. If any critical issues are discovered, regardless of
-category, provide a concise review in approximately 200
-words. If no issues are found, please state this explicitly.
-```
-
-Pricing of gemini models:
-<https://ai.google.dev/gemini-api/docs/pricing>
-
-models/gemini-2.5-flash
-models/gemini-2.5-pro
-models/gemini-2.0-flash
-models/gemini-2.0-flash-001
-models/gemini-2.0-flash-lite-001
-models/gemini-2.0-flash-lite
-models/gemini-exp-1206
-models/gemini-2.5-flash-preview-tts
-models/gemini-2.5-pro-preview-tts
-models/gemma-3-1b-it
-models/gemma-3-4b-it
-models/gemma-3-12b-it
-models/gemma-3-27b-it
-models/gemma-3n-e4b-it
-models/gemma-3n-e2b-it
-models/gemini-flash-latest
-models/gemini-flash-lite-latest
-models/gemini-pro-latest
-models/gemini-2.5-flash-lite
-models/gemini-2.5-flash-image
-models/gemini-2.5-flash-preview-09-2025
-models/gemini-2.5-flash-lite-preview-09-2025
-models/gemini-3-pro-preview
-models/gemini-3-flash-preview
-models/gemini-3-pro-image-preview
-models/nano-banana-pro-preview
-models/gemini-robotics-er-1.5-preview
-models/gemini-2.5-computer-use-preview-10-2025
-models/deep-research-pro-preview-12-2025
-
-## Git Commit Naming Conventions
-
-This project follows **Conventional Commits** format for clear, semantic commit history:
-
-```
-<type>(<scope>): <subject>
-```
-
-**Types:**
-
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `refactor`: Code refactoring (no feature/fix)
-- `test`: Adding/updating tests
-- `chore`: Dependencies, build, tooling
-- `ci`: CI/CD configuration
-- `perf`: Performance improvements
-- `style`: Code formatting (no logic change)
-
-**Scopes** (module names):
-
-- `github-utils`, `io-utils`, `vector-store`, `process-layer`, `patch-output`, `logging`
-
-**Examples:**
-
-```
-feat(vector-store): add embeddings caching
-fix(io-utils): handle unicode decode errors
-refactor(process-layer): extract prompt templates
-docs: add architecture diagram
-test(patch-output): validate line numbers
-```
-
-**Rules:**
-
-- Max 50 characters in subject line
-- Use imperative mood ("add" not "adds")
-- No period at end of subject
-- Reference issues in body: `Fixes: #123`
+See [LICENSE](LICENSE), which contains the GNU GPL version 3 text. Package metadata currently advertises MIT and must be reconciled with the intended license before distribution.
