@@ -1,0 +1,93 @@
+{
+  "name": "codefixer",
+  "displayName": "CodeFixer",
+  "description": "Browse AI-generated code fixes and apply them to your projects",
+  "version": "0.0.1",
+  "publisher": "eda",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codefixer-explorer",
+          "title": "Code Fixer",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codefixer-explorer": [
+        {
+          "id": "codefixer.issuesView",
+          "name": "Project Issues"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "codefixer.viewDiff",
+        "title": "Code Fixer: View Suggested Fix",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "codefixer.applyPatch",
+        "title": "Code Fixer: Apply All Changes",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "codefixer.checkoutCommit",
+        "title": "Code Fixer: Checkout Commit",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "codefixer.refresh",
+        "title": "Code Fixer: Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "codefixer.applyPatch",
+          "when": "view == codefixer.issuesView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codefixer.checkoutCommit",
+          "when": "view == codefixer.issuesView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codefixer.refresh",
+          "when": "view == codefixer.issuesView",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "codefixer.viewDiff",
+          "when": "view == codefixer.issuesView && viewItem == issue",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  }
+}
