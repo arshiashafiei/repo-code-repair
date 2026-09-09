@@ -8,8 +8,8 @@ from typing import List, Optional
 import json
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from io_utils import get_file_content, iter_text_files
-import log
+from .io_utils import get_file_content, iter_text_files
+from . import log
 
 import chromadb
 

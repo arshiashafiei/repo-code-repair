@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Any, Iterable, List, Literal, Optional, Tuple
 
-import log
+from . import log
 
 
 class DiffViewEdits(BaseModel):

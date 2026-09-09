@@ -1,0 +1,42 @@
+# Include documentation files
+include README.md
+include LICENSE
+include doc.md
+
+# Include requirements
+include requirements.txt
+
+# Include project metadata
+include pyproject.toml
+
+# Include data files
+recursive-include code_fixer *.json
+recursive-include code_fixer *.txt
+
+# Exclude development files
+exclude .env
+exclude .secrets
+exclude .gitignore
+exclude .python-version
+exclude .cz.toml
+exclude docker-compose.yml
+
+# Exclude directories
+recursive-exclude .venv *
+recursive-exclude __pycache__ *
+recursive-exclude .git *
+recursive-exclude .vscode *
+recursive-exclude .notebook *
+recursive-exclude chroma-data *
+recursive-exclude logs *
+recursive-exclude results *
+recursive-exclude projects *
+recursive-exclude issues *
+recursive-exclude comments *
+recursive-exclude summarized_issues *
+recursive-exclude codebase *
+
+# Exclude notebook and scripts
+exclude combined_pipeline.ipynb
+exclude *.pyc
+exclude .DS_Store

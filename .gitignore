@@ -13,3 +13,15 @@ chroma-data/
 summarized_issues/
 projects/
 logs/
+
+# Package build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test results
+# results/
+.pytest_cache/
+.coverage
+htmlcov/
